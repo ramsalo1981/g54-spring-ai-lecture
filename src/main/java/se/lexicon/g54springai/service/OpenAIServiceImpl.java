@@ -1,6 +1,7 @@
 package se.lexicon.g54springai.service;
 
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -22,7 +23,6 @@ import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,15 +47,19 @@ public class OpenAIServiceImpl implements OpenAIService {
     private OpenAiAudioTranscriptionModel openaiAudioTranscriptionModel;
     private OpenAiAudioSpeechModel openaiAudioSpeechModel;
 
+    private final ChatMemory chatMemory;
 
     @Autowired
     public OpenAIServiceImpl(OpenAiChatModel openAiChatModel, OpenAiImageModel openAiImageModel,
                              OpenAiAudioTranscriptionModel openaiAudioTranscriptionModel,
-                             OpenAiAudioSpeechModel openaiAudioSpeechModel) {
+                             OpenAiAudioSpeechModel openaiAudioSpeechModel,
+                             ChatMemory chatMemory
+    ) {
         this.openAiChatModel = openAiChatModel;
         this.openAiImageModel = openAiImageModel;
         this.openaiAudioTranscriptionModel = openaiAudioTranscriptionModel;
         this.openaiAudioSpeechModel = openaiAudioSpeechModel;
+        this.chatMemory = chatMemory;
     }
 
     @Override
@@ -183,7 +187,6 @@ public class OpenAIServiceImpl implements OpenAIService {
 
     }
 
-
     public String speechToText(MultipartFile file) {
         try {
             Path tempFile = null;
@@ -243,4 +246,46 @@ public class OpenAIServiceImpl implements OpenAIService {
             throw new RuntimeException("Error generating speech: " + e.getMessage(), e);
         }
     }
+
+    @Override
+    public String chatMemory(final String query, final String conversationId) {
+        if (query == null || query.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query cannot be null or empty");
+        }
+        if (conversationId == null || conversationId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Conversation ID cannot be null or empty");
+        }
+        UserMessage userMessage = UserMessage.builder()
+                .text(query)
+                .build();
+        chatMemory.add(conversationId, userMessage);
+        Prompt prompt = Prompt.builder()
+                .messages(chatMemory.get(conversationId))  // fetch the previous 10 messages from the chat memory
+                .chatOptions(OpenAiChatOptions.builder()
+                        .model("gpt-4.1-mini")
+                        .temperature(0.2)
+                        .maxTokens(500)
+                        .build())
+                .build();
+        ChatResponse chatResponse = openAiChatModel.call(prompt);
+        chatMemory.add(conversationId, chatResponse.getResult().getOutput());
+
+        System.out.println("Current memory size: " + chatMemory.get(conversationId).size());
+        System.out.println("Message in Memory: ");
+        chatMemory.get(conversationId).forEach(msg -> System.out.println(msg.getText()));
+
+        return chatResponse.getResult().getOutput().getText();
+    }
+
+    // Utility method to reset a chat
+    public void resetChatMemory(String conversationId) {
+        if (conversationId == null || conversationId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Conversation ID cannot be null or empty");
+        }
+        // first find the conversation in the chat memory
+        // if exist then clear it
+        // else throw an exception
+        chatMemory.clear(conversationId);
+    }
+
 }

@@ -1,4 +1,4 @@
-# 🌱 Spring AI Lecture: Part 1
+# 🌱 Spring AI Lecture: Part
 
 ## Agenda:
 - Introduction to Spring AI
@@ -13,4 +13,5 @@
   - Guide model behavior using structured system prompts
   - Explain tone, role, restrictions, and knowledge base control
   - Tune the model's response style and content.
-
+- Introduction to ChatMemory
+- Tool Calling

@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
+import se.lexicon.g54springai.service.ChatClientService;
 import se.lexicon.g54springai.service.OpenAIService;
 
 import java.io.IOException;
@@ -20,10 +21,12 @@ import java.io.IOException;
 public class OpenAIController {
 
     private final OpenAIService service;
+    private final ChatClientService clientService;
 
     @Autowired
-    public OpenAIController(OpenAIService service) {
+    public OpenAIController(OpenAIService service, ChatClientService clientService) {
         this.service = service;
+        this.clientService = clientService;
     }
 
     @GetMapping
@@ -31,6 +34,7 @@ public class OpenAIController {
         return "Welcome to the OpenAI Chat API!";
     }
 
+    // http://localhost:8080/api/chat/messages?question=
     @GetMapping("/messages")
     public String processSimpleChatQuery(
             @NotNull(message = "Question cannot be null")
@@ -68,7 +72,7 @@ public class OpenAIController {
     public String AskToProcessImage(@RequestParam
                                     @NotNull(message = "File cannot be null")
                                     MultipartFile file) {
-        return  service.processImage(file);
+        return service.processImage(file);
 
     }
 
@@ -80,7 +84,6 @@ public class OpenAIController {
             @RequestParam String query) {
         return service.generateImageAndReturnUrl(query);
     }
-
 
 
     @PostMapping("/speech-to-text")
@@ -103,4 +106,50 @@ public class OpenAIController {
         return new ResponseEntity<>(audioData, headers, HttpStatus.OK);
 
     }
+
+
+    @GetMapping("/messages/chat-memory")
+    public String chatMemory(
+            @RequestParam
+            @NotNull(message = "Conversation ID cannot be null")
+            @NotBlank(message = "Conversation ID cannot be blank")
+            @Size(max = 36, message = "Conversation ID cannot exceed 36 characters")
+            String conversationId,
+            @RequestParam
+            @NotNull(message = "Question cannot be null")
+            @NotBlank(message = "Question cannot be blank")
+            @Size(max = 200, message = "Question cannot exceed 200 characters")
+            String question) {
+        System.out.println("conversationId = " + conversationId);
+        System.out.println("question = " + question);
+        return service.chatMemory(question, conversationId);
+    }
+
+    @GetMapping("/reset-chat")
+    public void resetChat(
+            @RequestParam
+            @NotNull(message = "Conversation ID cannot be null")
+            @NotBlank(message = "Conversation ID cannot be blank")
+            @Size(max = 36, message = "Conversation ID cannot exceed 36 characters")
+            String conversationId) {
+        service.resetChatMemory(conversationId);
+    }
+
+
+    @GetMapping("/messages/new-chat-memory")
+    public String newChatMemory(@RequestParam
+                                @NotNull(message = "Conversation ID cannot be null")
+                                @NotBlank(message = "Conversation ID cannot be blank")
+                                @Size(max = 36, message = "Conversation ID cannot exceed 36 characters")
+                                String conversationId,
+                                @RequestParam
+                                @NotNull(message = "Question cannot be null")
+                                @NotBlank(message = "Question cannot be blank")
+                                @Size(max = 200, message = "Question cannot exceed 200 characters")
+                                String question) {
+        System.out.println("conversationId = " + conversationId);
+        System.out.println("question = " + question);
+        return clientService.chatMemory(question, conversationId);
+    }
+
 }

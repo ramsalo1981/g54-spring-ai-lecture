@@ -19,4 +19,7 @@ public interface OpenAIService {
 
     byte[] textToSpeech(String text);
 
+    String chatMemory(String query, String conversationId);
+
+    void resetChatMemory(String conversationId);
 }
